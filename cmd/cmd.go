@@ -103,26 +103,7 @@ func CreateHandler(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	for i := range modelfile.Commands {
-		switch modelfile.Commands[i].Name {
-		case "model", "draft", "adapter":
-			path := modelfile.Commands[i].Args
-			if path == "~" {
-				path = home
-			} else if strings.HasPrefix(path, "~/") {
-				path = filepath.Join(home, path[2:])
-			}
-
-			if !filepath.IsAbs(path) {
-				path = filepath.Join(filepath.Dir(filename), path)
-			}
-
-			fi, err := os.Stat(path)
-			if errors.Is(err, os.ErrNotExist) && (modelfile.Commands[i].Name == "model" || modelfile.Commands[i].Name == "draft") {
-				continue
-			} else if err != nil {
-				return err
-			}
+	spinner.Stop()
 
 	req.Name = args[0]
 	quantize, _ := cmd.Flags().GetString("quantize")

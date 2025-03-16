@@ -49,6 +49,7 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 	for _, c := range f.Commands {
 		switch c.Name {
 		case "model":
+		case "draft":
 			path, err := expandPath(c.Args, relativeDir)
 			if err != nil {
 				return nil, err
