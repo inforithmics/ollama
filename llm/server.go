@@ -98,7 +98,7 @@ func LoadModel(model string, maxArraySize int) (*ggml.GGML, error) {
 
 // NewLlamaServer will run a server for the given GPUs
 // The gpu list must be a single family.
-func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *GGML, adapters, projectors []string, draftModel string, dggml *GGML, opts api.Options, numParallel int) (LlamaServer, error) {
+func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *ggml.GGML, adapters, projectors []string, draftModel string, dggml ggml.GGML, opts api.Options, numParallel int) (LlamaServer, error) {
 	var err error
 	var cpuRunner string
 	var estimate MemoryEstimate
