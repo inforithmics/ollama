@@ -28,7 +28,7 @@ func PredictServerFit(allGpus discover.GpuInfoList, f *ggml.GGML, adapters, proj
 				return true, estimatedVRAM
 			} else {
 				draftLayerCount, draftEstimatedVRAM = draftEstimate.Layers, draftEstimate.VRAMSize
-				if isModelFitting(dggml, draftLayerCount, opts.DraftNumGPU) {
+				if isModelFitting(df, draftLayerCount, opts.DraftNumGPU) {
 					return true, estimatedVRAM + draftEstimatedVRAM
 				}
 			}
@@ -37,9 +37,9 @@ func PredictServerFit(allGpus discover.GpuInfoList, f *ggml.GGML, adapters, proj
 	return false, estimatedVRAM
 }
 
-func isModelFitting(ggml *GGML, layerCount int, numGPU int) bool {
+func isModelFitting(f *ggml.GGML, layerCount int, numGPU int) bool {
 	if numGPU < 0 {
-		if layerCount > 0 && layerCount >= int(ggml.KV().BlockCount()+1) {
+		if layerCount > 0 && layerCount >= int(f.KV().BlockCount()+1) {
 			return true
 		}
 	} else {
@@ -153,13 +153,13 @@ func EstimateGPULayers(gpus []discover.GpuInfo, f *ggml.GGML, projectors []strin
 		}
 	}
 
-	kv, graphPartialOffload, graphFullOffload := ggml.GraphSize(uint64(opts.NumCtx), uint64(min(opts.NumCtx, opts.NumBatch)), kvct)
+	kv, graphPartialOffload, graphFullOffload := f.GraphSize(uint64(opts.NumCtx), uint64(min(opts.NumCtx, opts.NumBatch)), kvct)
 
 	// KV is proportional to the number of layers
-	layerSize += kv / ggml.KV().BlockCount()
+	layerSize += kv / f.KV().BlockCount()
 
 	if graphPartialOffload == 0 {
-		graphPartialOffload = ggml.KV().GQA() * kv / 6
+		graphPartialOffload = f.KV().GQA() * kv / 6
 	}
 	if olrs.graphFullOffload == 0 {
 		olrs.graphFullOffload = olrs.graphPartialOffload
@@ -222,7 +222,7 @@ func allocateInitialLayersToGPUs(gpus []discover.GpuInfo, overhead uint64, gpuZe
 	return gpusWithSpace
 }
 
-func allocateLayersToGPUs(gpusWithSpace []gs, ggml *GGML, numGPU int, overhead uint64, olrs *offloadLayoutRequirements, gpuAllocations []uint64) {
+func allocateLayersToGPUs(gpusWithSpace []gs, f *ggml.GGML, numGPU int, overhead uint64, olrs *offloadLayoutRequirements, gpuAllocations []uint64) {
 	layers := ggml.Tensors().Layers()
 
 	// For all the layers, find where they can fit on the GPU(s)
@@ -253,10 +253,10 @@ func allocateLayersToGPUs(gpusWithSpace []gs, ggml *GGML, numGPU int, overhead u
 			}
 		}
 	}
-	if layerCount >= int(ggml.KV().BlockCount()) {
+	if layerCount >= int(f.KV().BlockCount()) {
 		fullyLoaded = true
 	} else {
-		for i := layerCount; i < int(ggml.KV().BlockCount()); i++ {
+		for i := layerCount; i < int(f.KV().BlockCount()); i++ {
 			overflow += layerSize
 		}
 	}
