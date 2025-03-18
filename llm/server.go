@@ -66,7 +66,7 @@ type llmServer struct {
 	textProcessor model.TextProcessor
 
 	estimate      MemoryEstimate
-	draftEstimate *MemoryEstimate
+	draftEstimate MemoryEstimate
 	totalLayers   uint64
 	// gpuCount     int
 	gpus         discover.GpuInfoList // Recorded just before the model loaded, free space will be incorrect
@@ -98,11 +98,9 @@ func LoadModel(model string, maxArraySize int) (*ggml.GGML, error) {
 
 // NewLlamaServer will run a server for the given GPUs
 // The gpu list must be a single family.
-func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *ggml.GGML, adapters, projectors []string, draftModel string, dggml ggml.GGML, opts api.Options, numParallel int) (LlamaServer, error) {
+func NewLlamaServer(gpus discover.GpuInfoList, model string, f *ggml.GGML, adapters, projectors []string, draftModel string, dggml ggml.GGML, opts api.Options, numParallel int) (LlamaServer, error) {
 	var err error
 	var cpuRunner string
-	var estimate MemoryEstimate
-	var draftEstimate *MemoryEstimate
 	var draftEstimateVRAMSize, draftEstimateTotalSize uint64
 	var systemTotalMemory uint64
 	var systemFreeMemory uint64
@@ -119,26 +117,19 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, ggml *ggml.GGML, ad
 	if opts.NumGPU == 0 {
 		gpus = discover.GetCPUInfo()
 	}
-	if len(gpus) == 1 && gpus[0].Library == "cpu" {
-		cpuRunner = runners.ServerForCpu()
-		estimate, draftEstimate = EstimateGPULayers(gpus, ggml, projectors, dggml, opts)
-		if draftEstimate != nil {
-			draftEstimateVRAMSize, draftEstimateTotalSize = draftEstimate.VRAMSize, draftEstimate.TotalSize
-		}
-	} else {
-		estimate, draftEstimate = EstimateGPULayers(gpus, ggml, projectors, dggml, opts)
 
-		if draftEstimate != nil {
-			draftEstimateVRAMSize, draftEstimateTotalSize = draftEstimate.VRAMSize, draftEstimate.TotalSize
-		}
+	estimate, draftEstimate := EstimateGPULayers(gpus, f, projectors, opts)
 
-	estimate := EstimateGPULayers(gpus, f, projectors, opts)
 	if len(gpus) > 1 || gpus[0].Library != "cpu" {
 		switch {
 		case gpus[0].Library == "metal" && estimate.VRAMSize+draftEstimateVRAMSize > systemTotalMemory:
 			// disable partial offloading when model is greater than total system memory as this
 			// can lead to locking up the system
 			opts.NumGPU = 0
+			opts.DraftNumGPU = 0
+			if draftEstimate != nil {
+				draftEstimateVRAMSize, draftEstimateTotalSize = draftEstimate.VRAMSize, draftEstimate.TotalSize
+			}
 		case gpus[0].Library != "metal" && estimate.Layers == 0:
 			// Don't bother loading into the GPU if no layers can fit
 			gpus = discover.GetCPUInfo()
