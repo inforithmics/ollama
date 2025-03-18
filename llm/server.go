@@ -102,9 +102,6 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, f *ggml.GGML, adapt
 	var err error
 	var cpuRunner string
 	var draftEstimateVRAMSize, draftEstimateTotalSize uint64
-	var systemTotalMemory uint64
-	var systemFreeMemory uint64
-	var systemSwapFreeMemory uint64
 	systemInfo := discover.GetSystemInfo()
 	systemTotalMemory := systemInfo.System.TotalMemory
 	systemFreeMemory := systemInfo.System.FreeMemory

@@ -87,7 +87,7 @@ type MemoryEstimate struct {
 
 // Given a model, an optional draft model, and one or more GPU targets, predict how many layers and bytes we can load, and the total size
 // The GPUs provided must all be the same Library
-func EstimateGPULayers(gpus []discover.GpuInfo, ggml *GGML, projectors []string, opts api.Options) MemoryEstimate {
+func EstimateGPULayers(gpus []discover.GpuInfo, f *ggml.GGML, projectors []string, opts api.Options) (MemoryEstimate, *MemoryEstimate) {
 	// Graph size for a partial offload, applies to all GPUs
 	var graphPartialOffload uint64
 
