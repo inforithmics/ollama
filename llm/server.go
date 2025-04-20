@@ -65,9 +65,8 @@ type llmServer struct {
 	// nil if this server is running the llama.cpp based engine
 	textProcessor model.TextProcessor
 
-	estimate      MemoryEstimate
-	draftEstimate MemoryEstimate
-	totalLayers   uint64
+	estimate    MemoryEstimate
+	totalLayers uint64
 	// gpuCount     int
 	gpus         discover.GpuInfoList // Recorded just before the model loaded, free space will be incorrect
 	loadDuration time.Duration        // Record how long it took the model to load
@@ -98,16 +97,11 @@ func LoadModel(model string, maxArraySize int) (*ggml.GGML, error) {
 
 // NewLlamaServer will run a server for the given GPUs
 // The gpu list must be a single family.
-func NewLlamaServer(gpus discover.GpuInfoList, model string, f *ggml.GGML, adapters, projectors []string, draftModel string, dggml ggml.GGML, opts api.Options, numParallel int) (LlamaServer, error) {
-	var err error
-	var cpuRunner string
-	var draftEstimateVRAMSize, draftEstimateTotalSize uint64
+func NewLlamaServer(gpus discover.GpuInfoList, modelPath string, f *ggml.GGML, adapters, projectors []string, opts api.Options, numParallel int) (LlamaServer, error) {
 	systemInfo := discover.GetSystemInfo()
 	systemTotalMemory := systemInfo.System.TotalMemory
 	systemFreeMemory := systemInfo.System.FreeMemory
 	systemSwapFreeMemory := systemInfo.System.FreeSwap
-	draftEstimateVRAMSize = 0
-	draftEstimateTotalSize = 0
 	slog.Info("system memory", "total", format.HumanBytes2(systemTotalMemory), "free", format.HumanBytes2(systemFreeMemory), "free_swap", format.HumanBytes2(systemSwapFreeMemory))
 
 	// If the user wants zero GPU layers, reset the gpu list to be CPU/system ram info
@@ -115,33 +109,25 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, f *ggml.GGML, adapt
 		gpus = discover.GetCPUInfo()
 	}
 
-	estimate, draftEstimate := EstimateGPULayers(gpus, f, projectors, opts)
-
+	estimate := EstimateGPULayers(gpus, f, projectors, opts, numParallel)
 	if len(gpus) > 1 || gpus[0].Library != "cpu" {
 		switch {
-		case gpus[0].Library == "metal" && estimate.VRAMSize+draftEstimateVRAMSize > systemTotalMemory:
+		case gpus[0].Library == "metal" && estimate.VRAMSize > systemTotalMemory:
 			// disable partial offloading when model is greater than total system memory as this
 			// can lead to locking up the system
 			opts.NumGPU = 0
-			opts.DraftNumGPU = 0
-			if draftEstimate != nil {
-				draftEstimateVRAMSize, draftEstimateTotalSize = draftEstimate.VRAMSize, draftEstimate.TotalSize
-			}
 		case gpus[0].Library != "metal" && estimate.Layers == 0:
 			// Don't bother loading into the GPU if no layers can fit
 			gpus = discover.GetCPUInfo()
 		case opts.NumGPU < 0 && estimate.Layers > 0 && gpus[0].Library != "cpu":
 			opts.NumGPU = estimate.Layers
-			if draftEstimate != nil && opts.DraftNumGPU < 0 && draftEstimate.Layers > 0 {
-				opts.DraftNumGPU = draftEstimate.Layers
-			}
 		}
 	}
 
 	// On linux and windows, over-allocating CPU memory will almost always result in an error
 	// Darwin has fully dynamic swap so has no direct concept of free swap space
 	if runtime.GOOS != "darwin" {
-		systemMemoryRequired := estimate.TotalSize - estimate.VRAMSize + draftEstimateTotalSize - draftEstimateVRAMSize
+		systemMemoryRequired := estimate.TotalSize - estimate.VRAMSize
 		available := systemFreeMemory + systemSwapFreeMemory
 		if systemMemoryRequired > available {
 			slog.Warn("model request too large for system", "requested", format.HumanBytes2(systemMemoryRequired), "available", available, "total", format.HumanBytes2(systemTotalMemory), "free", format.HumanBytes2(systemFreeMemory), "swap", format.HumanBytes2(systemSwapFreeMemory))
@@ -149,42 +135,7 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, f *ggml.GGML, adapt
 		}
 	}
 
-	slog.Info("target model estimate")
-	estimate.log()
-	if draftEstimate != nil {
-		slog.Info("draft model estimate")
-		draftEstimate.log()
-	}
-
-	// Loop through potential servers
-	finalErr := errors.New("no suitable llama servers found")
-
-	availableServers := runners.GetAvailableServers()
-
-	var servers []string
-	if cpuRunner != "" {
-		servers = []string{cpuRunner}
-	} else {
-		servers = runners.ServersForGpu(gpus[0].RunnerName()) // All GPUs in the list are matching Library and Variant
-	}
-	demandLib := envconfig.LLMLibrary()
-	if demandLib != "" {
-		serverPath := availableServers[demandLib]
-		if serverPath == "" {
-			slog.Info(fmt.Sprintf("Invalid OLLAMA_LLM_LIBRARY %s - not found", demandLib))
-		} else {
-			slog.Info("user override", "OLLAMA_LLM_LIBRARY", demandLib, "path", serverPath)
-			servers = []string{demandLib}
-			if strings.HasPrefix(demandLib, "cpu") || (!(runtime.GOOS == "darwin" && runtime.GOARCH == "arm64") && demandLib == runners.BuiltinName()) {
-				// Omit the GPU flag to silence the warning
-				opts.NumGPU = -1
-			}
-		}
-	}
-
-	if len(servers) == 0 {
-		return nil, fmt.Errorf("no servers found for %v", gpus)
-	}
+	slog.Info("offload", "", estimate)
 
 	params := []string{
 		"--model", modelPath,
@@ -245,26 +196,6 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, f *ggml.GGML, adapt
 		slog.Warn("quantized kv cache requested but flash attention disabled", "type", kvct)
 	}
 
-	if draftModel != "" {
-		params = append(params, "--draft-model", draftModel)
-		params = append(params, "--draft-gpu-layers", strconv.Itoa(opts.DraftNumGPU))
-		if opts.DraftMainGPU > 0 {
-			params = append(params, "--draft-main-gpu", strconv.Itoa(opts.MainGPU))
-		}
-		if opts.DraftNumCtx != 0 {
-			params = append(params, "--draft-ctx-size", strconv.Itoa(opts.DraftNumCtx))
-		}
-		if opts.DraftPMin != 0 {
-			params = append(params, "--draft-p-min", strconv.FormatFloat(float64(opts.DraftPMin), 'f', -1, 32))
-		}
-		if opts.DraftMin != 0 {
-			params = append(params, "--draft-min", strconv.Itoa(opts.DraftMin))
-		}
-		if opts.DraftMax != 0 {
-			params = append(params, "--draft-max", strconv.Itoa(opts.DraftMax))
-		}
-	}
-
 	// mmap has issues with partial offloading on metal
 	for _, g := range gpus {
 		if g.Library == "metal" &&
@@ -295,10 +226,6 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, f *ggml.GGML, adapt
 
 	if estimate.TensorSplit != "" {
 		params = append(params, "--tensor-split", estimate.TensorSplit)
-	}
-
-	if draftEstimate != nil && draftEstimate.TensorSplit != "" {
-		params = append(params, "--draft-tensor-split", draftEstimate.TensorSplit)
 	}
 
 	if envconfig.MultiUserCache() {
@@ -430,7 +357,6 @@ func NewLlamaServer(gpus discover.GpuInfoList, model string, f *ggml.GGML, adapt
 			llamaModel:    llamaModel,
 			textProcessor: textProcessor,
 			estimate:      estimate,
-			draftEstimate: draftEstimate,
 			numParallel:   numParallel,
 			sem:           semaphore.NewWeighted(int64(numParallel)),
 			totalLayers:   f.KV().BlockCount() + 1,
@@ -749,9 +675,32 @@ type CompletionRequest struct {
 	Grammar string // set before sending the request to the subprocess
 }
 
+// DoneReason represents the reason why a completion response is done
+type DoneReason int
+
+const (
+	// DoneReasonStop indicates the completion stopped naturally
+	DoneReasonStop DoneReason = iota
+	// DoneReasonLength indicates the completion stopped due to length limits
+	DoneReasonLength
+	// DoneReasonConnectionClosed indicates the completion stopped due to the connection being closed
+	DoneReasonConnectionClosed
+)
+
+func (d DoneReason) String() string {
+	switch d {
+	case DoneReasonLength:
+		return "length"
+	case DoneReasonStop:
+		return "stop"
+	default:
+		return "" // closed
+	}
+}
+
 type CompletionResponse struct {
 	Content            string        `json:"content"`
-	DoneReason         string        `json:"done_reason"`
+	DoneReason         DoneReason    `json:"done_reason"`
 	Done               bool          `json:"done"`
 	PromptEvalCount    int           `json:"prompt_eval_count"`
 	PromptEvalDuration time.Duration `json:"prompt_eval_duration"`
@@ -860,7 +809,6 @@ func (s *llmServer) Completion(ctx context.Context, req CompletionRequest, fn fu
 				continue
 			}
 
-			// slog.Debug("got line", "line", string(line))
 			evt, ok := bytes.CutPrefix(line, []byte("data: "))
 			if !ok {
 				evt = line
@@ -1067,32 +1015,19 @@ func (s *llmServer) Close() error {
 }
 
 func (s *llmServer) EstimatedVRAM() uint64 {
-	vramSize := s.estimate.VRAMSize
-	if s.draftEstimate != nil {
-		vramSize += s.draftEstimate.VRAMSize
-	}
-	return vramSize
+	return s.estimate.VRAMSize
 }
 
 func (s *llmServer) EstimatedTotal() uint64 {
-	totalSize := s.estimate.TotalSize
-	if s.draftEstimate != nil {
-		totalSize += s.draftEstimate.TotalSize
-	}
-	return totalSize
+	return s.estimate.TotalSize
 }
 
 func (s *llmServer) EstimatedVRAMByGPU(gpuID string) uint64 {
 	for i, gpu := range s.gpus {
 		if gpu.ID == gpuID {
-			var result uint64
 			if i < len(s.estimate.GPUSizes) {
-				result = s.estimate.GPUSizes[i]
+				return s.estimate.GPUSizes[i]
 			}
-			if s.draftEstimate != nil && i < len(s.draftEstimate.GPUSizes) {
-				result += s.draftEstimate.GPUSizes[i]
-			}
-			return result
 		}
 	}
 	return 0
