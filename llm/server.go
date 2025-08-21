@@ -834,6 +834,7 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 	if len(gpus) > 0 {
 		slog.Debug("First Gpu", "Name", gpus[0].Name)
 		slog.Debug("First Gpu", "Library", gpus[0].Library)
+		slog.Debug("First Gpu", "Id", gpus[0].ID)
 	}
 
 	sort.Sort(sort.Reverse(discover.ByFreeMemory(gpus)))
@@ -841,6 +842,7 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 	if len(gpus) > 0 {
 		slog.Debug("First Gpu Sorted", "Name", gpus[0].Name)
 		slog.Debug("First Gpu Sorted", "Library", gpus[0].Library)
+		slog.Debug("First Gpu Sorted", "Id", gpus[0].ID)
 	}
 
 	if memory == nil {
@@ -852,8 +854,8 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 	}
 
 	if len(memory.GPUs) > 0 {
-		slog.Debug("First Gpu Sorted", "Name", memory.GPUs[0].Name)
-		slog.Debug("First Gpu Sorted", "Library", memory.GPUs[0].ID)
+		slog.Debug("Memory Gpu", "Name", memory.GPUs[0].Name)
+		slog.Debug("Memory Gpu", "Library", memory.GPUs[0].ID)
 	}
 
 	layers := make([]uint64, len(memory.CPU.Weights))
