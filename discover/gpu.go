@@ -432,6 +432,9 @@ func GetGPUInfo() GpuInfoList {
 				gpuInfo.MinimumMemory = 0
 				gpuInfo.DependencyPath = []string{LibOllamaPath}
 				gpuInfo.Name = C.GoString(&memInfo.gpu_name[0])
+				slog.Info("Vulkan Info",
+					"Id", gpuInfo.ID,
+					"Name", gpuInfo.Name)
 				gpuInfo.DriverMajor = int(memInfo.major)
 				gpuInfo.DriverMinor = int(memInfo.minor)
 
