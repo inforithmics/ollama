@@ -830,7 +830,7 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 	}
 
 	gpus := append(make(discover.GpuInfoList, 0, len(systemGPUs)), systemGPUs...)
-	slog.Debug("available gpus", "number", len(gpus)
+	slog.Debug("available gpus", "number", len(gpus))
 	if len(gpus) > 0 {
 		slog.Debug("First Gpu", "Name", gpus[0].Name)
 		slog.Debug("First Gpu", "Library", gpus[0].Library)
