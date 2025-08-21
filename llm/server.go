@@ -844,10 +844,16 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 	}
 
 	if memory == nil {
+		slog.Debug("Cpu Memory Created")
 		memory = &ml.BackendMemory{CPU: ml.DeviceMemory{
 			Weights: make([]ml.Memory, s.totalLayers),
 			Cache:   make([]ml.Memory, s.totalLayers),
 		}}
+	}
+
+	if len(memory.GPUs) > 0 {
+		slog.Debug("First Gpu Sorted", "Name", memory.GPUs[0].Name)
+		slog.Debug("First Gpu Sorted", "Library", memory.GPUs[0].ID)
 	}
 
 	layers := make([]uint64, len(memory.CPU.Weights))
