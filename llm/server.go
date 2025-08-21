@@ -830,7 +830,18 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 	}
 
 	gpus := append(make(discover.GpuInfoList, 0, len(systemGPUs)), systemGPUs...)
+	slog.Debug("available gpus", "number", len(gpus)
+	if len(gpus) > 0 {
+		slog.Debug("First Gpu", "Name", gpus[0].Name)
+		slog.Debug("First Gpu", "Library", gpus[0].Library)
+	}
+
 	sort.Sort(sort.Reverse(discover.ByFreeMemory(gpus)))
+
+	if len(gpus) > 0 {
+		slog.Debug("First Gpu Sorted", "Name", gpus[0].Name)
+		slog.Debug("First Gpu Sorted", "Library", gpus[0].Library)
+	}
 
 	if memory == nil {
 		memory = &ml.BackendMemory{CPU: ml.DeviceMemory{
@@ -861,6 +872,7 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 			found := false
 			for j := range memory.GPUs {
 				if gl[i].ID == memory.GPUs[j].ID {
+					slog.Debug("Searching Gpu", "Name", gl[i].Name)
 					if memory.GPUs[j].Graph.Size != 0 {
 						lastUsedGPU = i
 					}
@@ -869,6 +881,7 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 					if gl[i].FreeMemory > reserved {
 						gl[i].FreeMemory -= reserved
 					} else {
+						slog.Debug("Free Memory Set to 0 not reserved", "Name", gl[i].Name)
 						gl[i].FreeMemory = 0
 					}
 
@@ -884,6 +897,7 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 			}
 			if !found {
 				// The runner doesn't report seeing this GPU
+				slog.Debug("Free Memory Set to 0 not found", "Name", gl[i].Name)
 				gl[i].FreeMemory = 0
 			}
 		}
