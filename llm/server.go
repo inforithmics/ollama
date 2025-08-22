@@ -856,8 +856,7 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 	if len(memory.GPUs) > 0 {
 		slog.Debug("Memory Gpu", "Name", memory.GPUs[0].Name)
 		slog.Debug("Memory Gpu", "Id", memory.GPUs[0].ID)
-	}
-	else {
+	} else {
 		slog.Debug("Memory Cpu", "Name", memory.CPU.Name)
 		slog.Debug("Memory Cpu", "Id", memory.CPU.ID)
 	}
