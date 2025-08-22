@@ -187,6 +187,10 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 		var props C.struct_ggml_backend_dev_props
 		C.ggml_backend_dev_get_props(d, &props)
 		requiredMemory.GPUs[i].ID = C.GoString(props.id)
+		slog.Debug("required Memory Gpu",
+			"number", i,
+			"name", requiredMemory.GPUs[i].Name,
+			"Id", requiredMemory.GPUs[i].ID)
 		requiredMemory.GPUs[i].Weights = make([]ml.Memory, blocks+1)
 		requiredMemory.GPUs[i].Cache = make([]ml.Memory, blocks+1)
 	}

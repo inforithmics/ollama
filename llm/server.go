@@ -857,6 +857,10 @@ func (s *ollamaServer) createLayout(systemInfo discover.SystemInfo, systemGPUs d
 		slog.Debug("Memory Gpu", "Name", memory.GPUs[0].Name)
 		slog.Debug("Memory Gpu", "Id", memory.GPUs[0].ID)
 	}
+	else {
+		slog.Debug("Memory Cpu", "Name", memory.CPU.Name)
+		slog.Debug("Memory Cpu", "Id", memory.CPU.ID)
+	}
 
 	layers := make([]uint64, len(memory.CPU.Weights))
 	for i := range layers {
