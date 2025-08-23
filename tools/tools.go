@@ -3,10 +3,20 @@ package tools
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"log/slog"
+	"runtime"
 	"strings"
+	"syscall"
 	"text/template"
+	"time"
 
 	"github.com/ollama/ollama/api"
+)
+
+var (
+	kernel32              = syscall.NewLazyDLL("kernel32.dll")
+	procIsDebuggerPresent = kernel32.NewProc("IsDebuggerPresent")
 )
 
 type toolsState int
@@ -24,6 +34,26 @@ type Parser struct {
 	state  toolsState
 	buffer []byte
 	n      int
+}
+
+// waitForDebugger blocks until a debugger is attached.
+// It prints the PID and waits, checking periodically.
+func waitForDebugger() {
+	slog.Info("Process PID:", syscall.Getpid())
+	slog.Info("Waiting for debugger to attach... (Press Ctrl+C to skip)")
+
+	for !isDebuggerAttached() {
+		time.Sleep(100 * time.Millisecond) // Avoid busy loop
+		runtime.Gosched()                  // Yield CPU
+	}
+
+	fmt.Println("Debugger detected. Continuing execution...")
+}
+
+// isDebuggerAttached calls Windows API IsDebuggerPresent()
+func isDebuggerAttached() bool {
+	ret, _, _ := procIsDebuggerPresent.Call()
+	return ret != 0
 }
 
 func (p *Parser) GetBuffer() []byte {
