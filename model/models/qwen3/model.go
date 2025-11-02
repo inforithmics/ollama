@@ -7,6 +7,7 @@ import (
 
 	"github.com/ollama/ollama/fs"
 	"github.com/ollama/ollama/kvcache"
+	"github.com/ollama/ollama/logutil"
 	"github.com/ollama/ollama/ml"
 	"github.com/ollama/ollama/ml/nn"
 	"github.com/ollama/ollama/ml/nn/fast"
@@ -98,6 +99,7 @@ func (mlp *sparse) Forward(ctx ml.Context, hiddenStates ml.Tensor, opts *Options
 
 	routingWeights := routerLogits.Softmax(ctx)
 	selectedExperts := routingWeights.TopK(ctx, opts.numExpertsUsed)
+	logutil.Trace("moe selected experts", "k", opts.numExpertsUsed, "indices", ml.Dump(ctx, selectedExperts))
 	routingWeights = routingWeights.Reshape(ctx, 1, opts.numExperts, hiddenStates.Dim(1)).Rows(ctx, selectedExperts)
 	if opts.normTopKProb {
 		routingWeights = routingWeights.Reshape(ctx, opts.numExpertsUsed, hiddenStates.Dim(1))
