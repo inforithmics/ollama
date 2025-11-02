@@ -99,7 +99,8 @@ func (mlp *sparse) Forward(ctx ml.Context, hiddenStates ml.Tensor, opts *Options
 
 	routingWeights := routerLogits.Softmax(ctx)
 	selectedExperts := routingWeights.TopK(ctx, opts.numExpertsUsed)
-	logutil.Trace("moe selected experts", "k", opts.numExpertsUsed, "indices", ml.Dump(ctx, selectedExperts))
+	logutil.Trace("moe selected experts", "k", opts.numExpertsUsed, "shape", selectedExperts.Shape(), "dtype", selectedExperts.DType())
+	
 	routingWeights = routingWeights.Reshape(ctx, 1, opts.numExperts, hiddenStates.Dim(1)).Rows(ctx, selectedExperts)
 	if opts.normTopKProb {
 		routingWeights = routingWeights.Reshape(ctx, opts.numExpertsUsed, hiddenStates.Dim(1))
