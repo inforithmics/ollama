@@ -325,6 +325,10 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 					target: "blk." + strconv.Itoa(i) + "." + t.Name,
 				}, layer.bts, i)
 			}
+		case strings.Contains(t.Name, "_exps"):
+			slog.Info("Loaded Tensor on CPU: ", t.Name)
+			// MoE expert weights can be very large; keep them on CPU to save GPU memory
+			createTensor(tensor{source: t}, input.bts, -1)
 		default:
 			layerIndex := -1
 			if fields := strings.FieldsFunc(t.Name, func(r rune) bool { return !unicode.IsNumber(r) }); len(fields) > 0 {
@@ -341,6 +345,8 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 			}
 		}
 	}
+
+	C.ggml_backend_cpu_set_n_threads(input.bts, C.int(Threads(params.NumThreads)))
 
 	// map tensor names to tensors for easy lookup later
 	tensors := make(map[string]*C.struct_ggml_tensor)
