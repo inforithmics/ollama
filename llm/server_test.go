@@ -163,8 +163,9 @@ func TestLLMServerFitGPU(t *testing.T) {
 			}
 
 			s.mem = &ml.BackendMemory{CPU: ml.DeviceMemory{
-				Weights: make([]uint64, s.totalLayers),
-				Cache:   make([]uint64, s.totalLayers),
+				Weights:    make([]uint64, s.totalLayers),
+				MoeWeights: make([]uint64, s.totalLayers),
+				Cache:      make([]uint64, s.totalLayers),
 			}, GPUs: make([]ml.DeviceMemory, len(gpus))}
 
 			for i := range tt.layers {
@@ -174,6 +175,7 @@ func TestLLMServerFitGPU(t *testing.T) {
 			for i := range s.mem.GPUs {
 				s.mem.GPUs[i].DeviceID = gpus[i].DeviceID
 				s.mem.GPUs[i].Weights = make([]uint64, s.totalLayers)
+				s.mem.GPUs[i].MoeWeights = make([]uint64, s.totalLayers)
 				s.mem.GPUs[i].Cache = make([]uint64, s.totalLayers)
 			}
 

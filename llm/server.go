@@ -837,8 +837,9 @@ func uniqueDeviceIDs(gpuLayers ml.GPULayersList) []ml.DeviceID {
 func (s *ollamaServer) createLayout(systemInfo ml.SystemInfo, systemGPUs []ml.DeviceInfo, memory *ml.BackendMemory, requireFull bool, backoff float32) (ml.GPULayersList, error) {
 	if memory == nil {
 		memory = &ml.BackendMemory{CPU: ml.DeviceMemory{
-			Weights: make([]uint64, s.totalLayers),
-			Cache:   make([]uint64, s.totalLayers),
+			Weights:    make([]uint64, s.totalLayers),
+			MoeWeights: make([]uint64, s.totalLayers),
+			Cache:      make([]uint64, s.totalLayers),
 		}}
 	}
 	gpuLayers, layers, err := s.buildLayout(systemGPUs, memory, requireFull, backoff)

@@ -125,6 +125,9 @@ type DeviceMemory struct {
 	// Weights is the per-layer memory needed for the model weights.
 	Weights []uint64
 
+	// Weights is the per-layer memory needed for the model weights.
+	MoeWeights []uint64
+
 	// Cache is the per-layer memory needed for the KV cache.
 	Cache []uint64
 

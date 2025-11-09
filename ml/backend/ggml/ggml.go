@@ -282,7 +282,11 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 			if layer == -1 {
 				requiredMemory.InputWeights += uint64(size)
 			} else {
-				btDeviceMemory[bt].Weights[layer] += uint64(size)
+				if strings.Contains(t.source.Name, "_exps") {
+					btDeviceMemory[bt].MoeWeights[layer] += uint64(size)
+				} else {
+					btDeviceMemory[bt].Weights[layer] += uint64(size)
+				}
 			}
 
 			//nolint:staticcheck // TODO: check if buffer type supports this tensor
@@ -345,8 +349,6 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 			}
 		}
 	}
-
-	C.ggml_backend_cpu_set_n_threads(input.bts, C.int(Threads(params.NumThreads)))
 
 	// map tensor names to tensors for easy lookup later
 	tensors := make(map[string]*C.struct_ggml_tensor)
