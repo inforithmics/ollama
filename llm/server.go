@@ -1014,12 +1014,6 @@ func assignLayers(layers []uint64, gpus []ml.DeviceInfo, requireFull bool, reque
 		}
 	}
 
-	if envconfig.SharedMemory() {
-		for i := range gpus {
-			gpus[i].Integrated = true
-		}
-	}
-
 	// If we can't fit everything then prefer offloading layers other than the output layer
 	for range 2 {
 		// requestedLayers may be -1 if nothing was requested
