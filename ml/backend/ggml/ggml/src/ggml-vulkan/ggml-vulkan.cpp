@@ -696,6 +696,7 @@ struct vk_device_struct {
     bool disable_host_visible_vidmem;
     bool allow_sysmem_fallback;
     bool disable_graph_optimize;
+    bool shared_memory;
 
 #ifdef GGML_VULKAN_MEMORY_DEBUG
     std::unique_ptr<vk_memory_logger> memory_logger;
@@ -3946,6 +3947,9 @@ static vk_device ggml_vk_get_device(size_t idx) {
 
         const char* GGML_VK_DISABLE_GRAPH_OPTIMIZE = getenv("GGML_VK_DISABLE_GRAPH_OPTIMIZE");
         device->disable_graph_optimize = GGML_VK_DISABLE_GRAPH_OPTIMIZE != nullptr;
+
+        const char* OLLAMA_SHARED_MEMORY = getenv("OLLAMA_SHARED_MEMORY");
+        device->shared_memory = OLLAMA_SHARED_MEMORY != nullptr;
 
         bool fp16_storage = false;
         bool fp16_compute = false;
