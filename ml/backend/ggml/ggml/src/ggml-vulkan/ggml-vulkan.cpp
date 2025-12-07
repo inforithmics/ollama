@@ -13671,7 +13671,7 @@ void ggml_backend_vk_get_device_memory(ggml_backend_vk_device_context *ctx, size
     vk::PhysicalDeviceMemoryBudgetPropertiesEXT budgetprops;
     vk::PhysicalDeviceMemoryProperties2 memprops = {};
     const bool membudget_supported = vk_instance.device_supports_membudget[ctx->device];
-    const bool is_integrated_gpu = vkdev.getProperties().deviceType == vk::PhysicalDeviceType::eIntegratedGpu || getenv("GGML_VK_USE_SHARED_MEMORY");
+    const bool use_shared_memory = vkdev.getProperties().deviceType == vk::PhysicalDeviceType::eIntegratedGpu || getenv("GGML_VK_USE_SHARED_MEMORY");
     
     vk::PhysicalDeviceProperties2 props2;
     vkdev.getProperties2(&props2);
@@ -13681,7 +13681,7 @@ void ggml_backend_vk_get_device_memory(ggml_backend_vk_device_context *ctx, size
     // Check VRAM reporting for Windows IGPU/DGPU using DXGI + PDH (vendor agnostic)
     if (ggml_dxgi_pdh_init() == 0) {
         GGML_LOG_DEBUG("DXGI + PDH Initialized. Getting GPU free memory info\n");
-        int status = ggml_dxgi_pdh_get_device_memory(ctx->luid.c_str(), free, total, is_integrated_gpu);
+        int status = ggml_dxgi_pdh_get_device_memory(ctx->luid.c_str(), free, total, use_shared_memory);
         if (status == 0) {
             GGML_LOG_DEBUG("%s utilizing DXGI + PDH memory reporting free: %zu total: %zu\n", __func__, *free, *total);
             ggml_dxgi_pdh_release();
@@ -13690,7 +13690,7 @@ void ggml_backend_vk_get_device_memory(ggml_backend_vk_device_context *ctx, size
         ggml_dxgi_pdh_release();
     }
 
-    if (!is_integrated_gpu)
+    if (!use_shared_memory)
     {
         // Use vendor specific management libraries for best VRAM reporting if available
         switch (props2.properties.vendorID) {
@@ -13731,7 +13731,7 @@ void ggml_backend_vk_get_device_memory(ggml_backend_vk_device_context *ctx, size
     for (uint32_t i = 0; i < memprops.memoryProperties.memoryHeapCount; ++i) {
         const vk::MemoryHeap & heap = memprops.memoryProperties.memoryHeaps[i];
 
-        if (is_integrated_gpu || (heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal)) {
+        if (use_shared_memory || (heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal)) {
             *total += heap.size;
 
             if (membudget_supported && i < budgetprops.heapUsage.size()) {
