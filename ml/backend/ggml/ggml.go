@@ -333,7 +333,7 @@ func New(modelPath string, params ml.BackendParams) (ml.Backend, error) {
 				}
 			}
 
-			if layerIndex >= 0 {
+			if layerIndex >= 0 && !strings.Contains(t.Name, "_exps") {
 				createTensor(tensor{source: t}, layers[layerIndex].bts, layerIndex)
 			} else {
 				// load all other tensors on the cpu
