@@ -1,4 +1,5 @@
 #include "ggml-backend-dl.h"
+#include "ggml-backend-reg.h"
 
 #ifdef _WIN32
 
