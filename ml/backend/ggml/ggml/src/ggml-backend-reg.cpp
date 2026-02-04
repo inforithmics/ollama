@@ -1,5 +1,6 @@
 #include "ggml-backend-impl.h"
 #include "ggml-backend.h"
+#include "ggml-backend-dl.h"
 #include "ggml-impl.h"
 #include <algorithm>
 #include <cstring>
@@ -97,84 +98,6 @@ static std::string path_str(const fs::path & path) {
         return std::string();
     }
 }
-
-#ifdef _WIN32
-
-using dl_handle = std::remove_pointer_t<HMODULE>;
-
-struct dl_handle_deleter {
-    void operator()(HMODULE handle) {
-        FreeLibrary(handle);
-    }
-};
-
-static dl_handle * dl_load_library(const fs::path & path) {
-    // suppress error dialogs for missing DLLs
-    DWORD old_mode = SetErrorMode(SEM_FAILCRITICALERRORS);
-    SetErrorMode(old_mode | SEM_FAILCRITICALERRORS);
-
-    HMODULE handle = LoadLibraryW(path.wstring().c_str());
-    if (!handle) {
-        DWORD error_code = GetLastError();
-        std::string msg;
-        LPSTR lpMsgBuf = NULL;
-        DWORD bufLen = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                                      NULL, error_code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&lpMsgBuf, 0, NULL);
-        if (bufLen) {
-            msg = lpMsgBuf;
-            LocalFree(lpMsgBuf);
-            GGML_LOG_INFO("%s unable to load library %s: %s\n", __func__, path_str(path).c_str(), msg.c_str());
-        }
-    }
-
-    SetErrorMode(old_mode);
-
-    return handle;
-}
-
-static void * dl_get_sym(dl_handle * handle, const char * name) {
-    DWORD old_mode = SetErrorMode(SEM_FAILCRITICALERRORS);
-    SetErrorMode(old_mode | SEM_FAILCRITICALERRORS);
-
-    void * p = (void *) GetProcAddress(handle, name);
-
-    SetErrorMode(old_mode);
-
-    return p;
-}
-
-static const char * dl_error() {
-    return "";
-}
-
-#else
-
-using dl_handle = void;
-
-struct dl_handle_deleter {
-    void operator()(void * handle) {
-        dlclose(handle);
-    }
-};
-
-static void * dl_load_library(const fs::path & path) {
-    dl_handle * handle = dlopen(path.string().c_str(), RTLD_NOW | RTLD_LOCAL);
-
-    return handle;
-}
-
-static void * dl_get_sym(dl_handle * handle, const char * name) {
-    return dlsym(handle, name);
-}
-
-static const char * dl_error() {
-    const char *rslt = dlerror();
-    return rslt != nullptr ? rslt : "";
-}
-
-#endif
-
-using dl_handle_ptr = std::unique_ptr<dl_handle, dl_handle_deleter>;
 
 struct ggml_backend_reg_entry {
     ggml_backend_reg_t reg;

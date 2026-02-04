@@ -4,14 +4,14 @@ Date: Fri, 17 Oct 2025 14:17:00 -0700
 Subject: [PATCH] report LoadLibrary failures
 
 ---
- ggml/src/ggml-backend-reg.cpp | 12 ++++++++++++
+ ggml/src/ggml-backend-dl.cpp | 12 ++++++++++++
  1 file changed, 12 insertions(+)
 
-diff --git a/ggml/src/ggml-backend-reg.cpp b/ggml/src/ggml-backend-reg.cpp
-index dcdfa27bf..f451cd890 100644
---- a/ggml/src/ggml-backend-reg.cpp
-+++ b/ggml/src/ggml-backend-reg.cpp
-@@ -114,6 +114,18 @@ static dl_handle * dl_load_library(const fs::path & path) {
+diff --git a/ggml/src/ggml-backend-dl.cpp b/ggml/src/ggml-backend-dl.cpp
+index a65cf0090..f89b53f17 100644
+--- a/ggml/src/ggml-backend-dl.cpp
++++ b/ggml/src/ggml-backend-dl.cpp
+@@ -8,6 +8,18 @@ dl_handle * dl_load_library(const fs::path & path) {
      SetErrorMode(old_mode | SEM_FAILCRITICALERRORS);
  
      HMODULE handle = LoadLibraryW(path.wstring().c_str());

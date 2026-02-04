@@ -137,7 +137,7 @@ index 392f9160c..14e089efb 100644
      if (il < n_layer) {
          return swa_layers[il];
 diff --git a/src/llama-hparams.h b/src/llama-hparams.h
-index caed0ec1b..61a1fbef6 100644
+index dfbc7d95e..847e3770a 100644
 --- a/src/llama-hparams.h
 +++ b/src/llama-hparams.h
 @@ -66,6 +66,8 @@ struct llama_hparams {
